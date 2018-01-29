@@ -8,7 +8,9 @@
 import scrapy
 
 
-class DatacollectItem(scrapy.Item):
-    # define the fields for your item here like:
-    # name = scrapy.Field()
+class DataCollecterItem(scrapy.Item):
+    title = scrapy.Field()
+    url = scrapy.Field()
+    date = scrapy.Field()
+    spider = scrapy.Field()
     pass

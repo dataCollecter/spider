@@ -9,14 +9,16 @@
 #     http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html
 #     http://scrapy.readthedocs.org/en/latest/topics/spider-middleware.html
 
-BOT_NAME = 'dataCollect'
+BOT_NAME = 'dataCollecter'
 
 SPIDER_MODULES = ['dataCollecter.spiders']
 NEWSPIDER_MODULE = 'dataCollecter.spiders'
 
-
+ITEM_PIPELINES = {
+    'dataCollecter.pipelines.DataCollecterPipeline': 300,
+}
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
-#USER_AGENT = 'dataCollect (+http://www.yourdomain.com)'
+USER_AGENT = 'dataCollect (+http://www.yourdomain.com)'
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = True
@@ -47,7 +49,7 @@ CONCURRENT_REQUESTS = 1
 # Enable or disable spider middlewares
 # See http://scrapy.readthedocs.org/en/latest/topics/spider-middleware.html
 # SPIDER_MIDDLEWARES = {
-#    'dataCollect.middlewares.DatacollectSpiderMiddleware': 543,
+#    'dataCollect.middlewares.DataCollectSpiderMiddleware': 543,
 #}
 
 # Enable or disable downloader middlewares
@@ -64,9 +66,7 @@ CONCURRENT_REQUESTS = 1
 
 # Configure item pipelines
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
-# ITEM_PIPELINES = {
-#    'dataCollect.pipelines.DatacollectPipeline': 300,
-#}
+
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See http://doc.scrapy.org/en/latest/topics/autothrottle.html
