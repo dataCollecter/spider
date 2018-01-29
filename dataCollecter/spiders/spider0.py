@@ -31,7 +31,7 @@ class Spider0(Spider):
                     {'spider_name': self.spider_name})) == 0:
                 self.json = spider.find(
                     {'spider_name': self.spider_name})[0]
-                yield Request(url, callback=self.parse0, dont_filter=True)
+                yield Request(self.json['url'], callback=self.parse0, dont_filter=True)
                 sleep(3)
             else:
                 json = dict(follow_path.find(
@@ -40,7 +40,7 @@ class Spider0(Spider):
                 self.path_tot = json.get('path_tot', [])
                 self.path_a = json.get('path_a', [])
                 self.path_date = json.get('path_date', [])
-            yield Request(url, callback=self.parse1)
+            yield Request(json['url'], callback=self.parse1)
 
     def parse0(self, response):
         soup = BeautifulSoup(response.body, 'lxml')
