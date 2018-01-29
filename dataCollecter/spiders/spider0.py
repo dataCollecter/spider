@@ -27,7 +27,7 @@ class Spider0(Spider):
                      'date1': '2018.01.10'}
         self.urls = []
         fp = open(
-            'D:\\workspace\\scrapy spider\\dataCollect\\dataCollect\\test0.txt')
+            'D:\\workspace\\scrapy spider\\dataCollecter\\dataCollecter\\test0.txt')
         for line in fp.readlines():
             self.urls.append(line.strip())
 
@@ -99,13 +99,11 @@ class Spider0(Spider):
         self.path_all.reverse()
         print(self.path_all)
 
-        
-
     def parse1(self, response):
         soup = BeautifulSoup(response.body, 'lxml')
         tag_all = soup.find('body')
         for i in self.path_all:
-        # print(tag_all.name)
+            # print(tag_all.name)
             tag_all = tag_all.find_all(i[0], recursive=False)[i[1]]
         tag_all = tag_all.find_all(self.path_tot[0])
         self.path_tot.remove(self.path_tot[0])
