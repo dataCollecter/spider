@@ -27,20 +27,23 @@ class Spider0(Spider):
 
     def start_requests(self):
         if len(spider.find({'spider_name': self.spider_name})) != 0:
+            # 找不到记录则需要爬取历史数据
             if len(follow_path.find(
                     {'spider_name': self.spider_name})) == 0:
                 self.json = spider.find(
                     {'spider_name': self.spider_name})[0]
                 yield Request(self.json['url'], callback=self.parse0, dont_filter=True)
                 sleep(3)
-            else:
+                meta = {'timing': False}
+            else:  # 如果找得到path记录说明不是第一次爬，只需要更新最新数据
                 json = dict(follow_path.find(
                     {'spider_name': self.spider_name}))
                 self.path_all = json.get('path_all', [])
                 self.path_tot = json.get('path_tot', [])
                 self.path_a = json.get('path_a', [])
                 self.path_date = json.get('path_date', [])
-            yield Request(json['url'], callback=self.parse1)
+                meta = {'timing': True}
+            yield Request(json['url'], callback=self.parse1, meta=meta)
 
     def parse0(self, response):
         soup = BeautifulSoup(response.body, 'lxml')
@@ -101,12 +104,13 @@ class Spider0(Spider):
         self.path_all.reverse()
         # print(self.path_all)
         follow_path.update({'spider_name': self.spider_name},
-                           {'$set': dict({'path_all': self.path_all, 'path_tot': self.path_tot,
+                           {'$set': dict({'spider': self.spider_name, 'url': response.url, 'path_all': self.path_all, 'path_tot': self.path_tot,
                                           'path_date': self.path_date, 'path_a': self.path_a})},
                            upsert=True)
 
     def parse1(self, response):
         soup = BeautifulSoup(response.body, 'lxml')
+        next_page = None
         tag_all = soup.find('body')
         for i in self.path_all:
             # print(tag_all.name)
@@ -131,5 +135,12 @@ class Spider0(Spider):
                 item['url'] = a
                 item['title'] = tag_a.get_text().strip()
                 item['spider_name'] = self.spider_name
+                yield item
             except:
+                if tot.find(string='下一页') is not None and tot.find(string='下一页').parent.get('href', None) is not None:
+                    next_page = urljoin(
+                        response.url, tot.find(string='下一页').parent.get('href'))
                 continue
+        if response.meta['timing'] is False next_page is None or soup.find(string=re.compile('下一页')) is not None:
+            next_page = urljoin(response.url, soup.find(string=re.compile))
+            yield Request(next_page, callback=self.parse1)
