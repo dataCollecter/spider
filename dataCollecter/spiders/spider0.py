@@ -7,7 +7,7 @@ from scrapy import Request
 from scrapy.spiders import Spider
 
 from ..items import DataCollecterItem
-from ..store import follow_path, spider
+from ..store import *
 
 
 class Spider0(Spider):
@@ -25,17 +25,23 @@ class Spider0(Spider):
         #              'title2': '调整找矿突破战略行动专家技术指导组组成人员',
         #              'date2': '2018.01.10'}
 
+    def delete_lastestData(self):
+        lastest_data.drop()
+
     def start_requests(self):
-        if len(spider.find({'spider_name': self.spider_name})) != 0:
+        if len(list(spider.find({'spider_name': self.spider_name}))) != 0:
             # 找不到记录则需要爬取历史数据
-            if len(follow_path.find(
-                    {'spider_name': self.spider_name})) == 0:
+            if len(list(follow_path.find(
+                    {'spider_name': self.spider_name}))) == 0:
                 self.json = spider.find(
                     {'spider_name': self.spider_name})[0]
                 yield Request(self.json['url'], callback=self.parse0, dont_filter=True)
                 sleep(3)
                 meta = {'timing': False}
+                yield Request(self.json['url'], callback=self.parse1, meta=meta)
+                self.delete_lastestData()
             else:  # 如果找得到path记录说明不是第一次爬，只需要更新最新数据
+                self.delete_lastestData()
                 json = dict(follow_path.find(
                     {'spider_name': self.spider_name}))
                 self.path_all = json.get('path_all', [])
@@ -43,32 +49,15 @@ class Spider0(Spider):
                 self.path_a = json.get('path_a', [])
                 self.path_date = json.get('path_date', [])
                 meta = {'timing': True}
-            yield Request(json['url'], callback=self.parse1, meta=meta)
+                yield Request(json['url'], callback=self.parse1, meta=meta)
 
     def parse0(self, response):
         soup = BeautifulSoup(response.body, 'lxml')
-        tag_a0 = soup.find('a', string=self.json['title1'])
-        # print(tag_a0)
-        # 提供两组数据，查找连结点
-        loc0 = tag_a0
-        loc1 = tag_a0.parent
-        while loc0.find(string=re.compile('.*' + self.json['date1'] + '.*')) is None:
-            for count, i in enumerate(loc1.find_all(loc0.name, recursive=False)):
-                if i == loc0:
-                    self.path_a.append([loc0.name, count])
-                    break
-            loc0 = loc1
-            loc1 = loc1.parent
-        self.path_a.reverse()
-        # print(self.path_a)
-
-        tag_date1 = loc1.find(string=re.compile(
-            '.*' + self.json['date1'] + '.*')).parent
-        tag_tot = loc0
-
-        loc0 = tag_date1
-        loc1 = loc0.parent
-        while loc0 != tag_tot:
+        tag_date0=soup.find(string=re.compile('.*' + self.json['date1'] + '.*')).parent
+        print(tag_date0)
+        loc0=tag_date0
+        loc1=tag_date0.parent
+        while loc0.find('a',string=self.json['title1']) is None:
             for count, i in enumerate(loc1.find_all(loc0.name, recursive=False)):
                 if i == loc0:
                     self.path_date.append([loc0.name, count])
@@ -76,7 +65,22 @@ class Spider0(Spider):
             loc0 = loc1
             loc1 = loc1.parent
         self.path_date.reverse()
-        # print(self.path_date)
+        print(self.path_date)
+
+        tag_a0 = loc0.find('a', string=self.json['title1'])
+        tag_tot = loc0
+        print(tag_a0.parent)
+        loc0 = tag_a0
+        loc1 = loc0.parent
+        while loc0 != tag_tot:
+            for count, i in enumerate(loc1.find_all(loc0.name, recursive=False)):
+                if i == loc0:
+                    self.path_a.append([loc0.name, count])
+                    break
+            loc0 = loc1
+            loc1 = loc1.parent
+        self.path_a.reverse()
+        print(self.path_a)
 
         loc0 = tag_tot
         loc1 = loc0.parent
@@ -88,7 +92,7 @@ class Spider0(Spider):
             loc0 = loc1
             loc1 = loc1.parent
         self.path_tot.reverse()
-        # print(self.path_tot)
+        print(self.path_tot)
 
         tag_all = loc0
 
@@ -102,7 +106,7 @@ class Spider0(Spider):
             loc0 = loc1
             loc1 = loc1.parent
         self.path_all.reverse()
-        # print(self.path_all)
+        print(self.path_all)
         follow_path.update({'spider_name': self.spider_name},
                            {'$set': dict({'spider': self.spider_name, 'url': response.url, 'path_all': self.path_all, 'path_tot': self.path_tot,
                                           'path_date': self.path_date, 'path_a': self.path_a})},
@@ -141,6 +145,6 @@ class Spider0(Spider):
                     next_page = urljoin(
                         response.url, tot.find(string='下一页').parent.get('href'))
                 continue
-        if response.meta['timing'] is False next_page is None or soup.find(string=re.compile('下一页')) is not None:
+        if response.meta['timing'] is False or next_page is None or soup.find(string=re.compile('下一页')) is not None:
             next_page = urljoin(response.url, soup.find(string=re.compile))
             yield Request(next_page, callback=self.parse1)
