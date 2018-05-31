@@ -9,8 +9,9 @@ from .store import lastest_data, data
 
 class DataCollecterPipeline(object):
     def process_item(self, item, spider):
-        lastest_data.update({'spider_name': item['spider_name'], 'url': item['url']}, {
+        if len(list(data.find({'spider':item['spider'],'title':item['title'],'date':item['date']})))==0:
+            lastest_data.update({'spider': item['spider'], 'url': item['url']}, {
+                '$set': dict(item)}, upsert=True)
+        data.update({'spider': item['spider'], 'url': item['url']}, {
             '$set': dict(item)}, upsert=True)
-        data.update({'spider_name': item['spider_name'], 'url': item['url']}, {
-            '$set': dict(item)}, upsert=True)
-        return item
+        return None

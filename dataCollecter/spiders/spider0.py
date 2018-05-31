@@ -20,10 +20,6 @@ class Spider0(Spider):
         self.path_a = []
         self.path_date = []
         self.spider_name = spider_name
-        # self.json = {'title1': '第27个全国“土地日”优秀组织单位和宣传项目',
-        #              'date1': '2018.01.19',
-        #              'title2': '调整找矿突破战略行动专家技术指导组组成人员',
-        #              'date2': '2018.01.10'}
 
     def delete_lastestData(self):
         lastest_data.drop()
@@ -43,7 +39,7 @@ class Spider0(Spider):
             else:  # 如果找得到path记录说明不是第一次爬，只需要更新最新数据
                 self.delete_lastestData()
                 json = dict(follow_path.find(
-                    {'spider_name': self.spider_name}))
+                    {'spider_name': self.spider_name}).next())
                 self.path_all = json.get('path_all', [])
                 self.path_tot = json.get('path_tot', [])
                 self.path_a = json.get('path_a', [])
@@ -54,7 +50,7 @@ class Spider0(Spider):
     def parse0(self, response):
         soup = BeautifulSoup(response.body, 'lxml')
         tag_date0=soup.find(string=re.compile('.*' + self.json['date1'] + '.*')).parent
-        print(tag_date0)
+        # print(tag_date0)
         loc0=tag_date0
         loc1=tag_date0.parent
         while loc0.find('a',string=self.json['title1']) is None:
@@ -65,11 +61,11 @@ class Spider0(Spider):
             loc0 = loc1
             loc1 = loc1.parent
         self.path_date.reverse()
-        print(self.path_date)
+        # print(self.path_date)
 
         tag_a0 = loc0.find('a', string=self.json['title1'])
         tag_tot = loc0
-        print(tag_a0.parent)
+        # print(tag_a0.parent)
         loc0 = tag_a0
         loc1 = loc0.parent
         while loc0 != tag_tot:
@@ -80,7 +76,7 @@ class Spider0(Spider):
             loc0 = loc1
             loc1 = loc1.parent
         self.path_a.reverse()
-        print(self.path_a)
+        # print(self.path_a)
 
         loc0 = tag_tot
         loc1 = loc0.parent
@@ -92,7 +88,7 @@ class Spider0(Spider):
             loc0 = loc1
             loc1 = loc1.parent
         self.path_tot.reverse()
-        print(self.path_tot)
+        # print(self.path_tot)
 
         tag_all = loc0
 
@@ -106,21 +102,24 @@ class Spider0(Spider):
             loc0 = loc1
             loc1 = loc1.parent
         self.path_all.reverse()
-        print(self.path_all)
+        # print(self.path_all)
         follow_path.update({'spider_name': self.spider_name},
                            {'$set': dict({'spider': self.spider_name, 'url': response.url, 'path_all': self.path_all, 'path_tot': self.path_tot,
                                           'path_date': self.path_date, 'path_a': self.path_a})},
                            upsert=True)
 
     def parse1(self, response):
+        tot1=self.path_tot[0]
+
+        self.path_tot.remove(self.path_tot[0])
         soup = BeautifulSoup(response.body, 'lxml')
         next_page = None
         tag_all = soup.find('body')
         for i in self.path_all:
             # print(tag_all.name)
             tag_all = tag_all.find_all(i[0], recursive=False)[i[1]]
-        tag_all = tag_all.find_all(self.path_tot[0])
-        self.path_tot.remove(self.path_tot[0])
+
+        tag_all = tag_all.find_all(tot1)
         for tot in tag_all:
             item = DataCollecterItem()
             try:
@@ -132,19 +131,25 @@ class Spider0(Spider):
                     tag_date = tag_date.find_all(i[0], recursive=False)[i[1]]
                 date = re.findall('\\d{4}[-\.\/]{1}\\d{2}[-\.\/]{1}\\d{2}', tag_date.find(
                     string=re.compile('.*\\d{4}[-\.\/]{1}\\d{2}[-\.\/]{1}\\d{2}.*')).string)[0]
-                item['date'] = date
+                item['date'] = date.replace("./\\-","-")
                 for i in self.path_a:
                     tag_a = tag_a.find_all(i[0], recursive=False)[i[1]]
                 a = urljoin(response.url, tag_a['href'])
                 item['url'] = a
                 item['title'] = tag_a.get_text().strip()
-                item['spider_name'] = self.spider_name
+                item['spider'] = self.spider_name
                 yield item
             except:
                 if tot.find(string='下一页') is not None and tot.find(string='下一页').parent.get('href', None) is not None:
                     next_page = urljoin(
                         response.url, tot.find(string='下一页').parent.get('href'))
                 continue
-        if response.meta['timing'] is False or next_page is None or soup.find(string=re.compile('下一页')) is not None:
-            next_page = urljoin(response.url, soup.find(string=re.compile))
-            yield Request(next_page, callback=self.parse1)
+        if response.meta['timing'] is False:
+            if next_page is None and soup.find(string=re.compile('下一页')) is not None:
+                if soup.find(string=re.compile('下一页')).parent.get('href',None) is None:
+                    return
+                next_page = urljoin(response.url, soup.find(string=re.compile('下一页')).parent['href'])
+            self.path_tot.reverse()
+            self.path_tot.append(tot1)
+            self.path_tot.reverse()
+            yield Request(next_page, callback=self.parse1,meta=response.meta)
