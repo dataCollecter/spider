@@ -13,6 +13,25 @@ from ..store import *
 class Spider0(Spider):
 
     name = 'test'
+    custom_settings = {
+        # 渲染服务的url
+        'SPLASH_URL': 'http://192.168.99.100127.0.0.1:8050',
+
+        # 下载器中间件
+        'DOWNLOADER_MIDDLEWARES': {
+            'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
+            'scrapy_splash.SplashCookiesMiddleware': 723,
+            'scrapy_splash.SplashMiddleware': 725,
+            'scrapy.downloadermiddlewares.httpcompression.HttpCompressionMiddleware': 810,
+        },
+        'SPIDER_MIDDLEWARES': {
+            'scrapy_splash.SplashDeduplicateArgsMiddleware': 100,
+        },
+        # 去重过滤器
+        'DUPEFILTER_CLASS': 'scrapy_splash.SplashAwareDupeFilter',
+        # 使用Splash的Http缓存
+        'HTTPCACHE_STORAGE': 'scrapy_splash.SplashAwareFSCacheStorage'
+    }
 
     def __init__(self, spider_name):
         self.path_all = []
@@ -31,10 +50,10 @@ class Spider0(Spider):
                     {'spider_name': self.spider_name}))) == 0:
                 self.json = spider.find(
                     {'spider_name': self.spider_name})[0]
-                yield Request(self.json['url'], callback=self.parse0, dont_filter=True)
+                yield Request('http://192.168.99.100:8050/render.html?url='+self.json['url'], callback=self.parse0, dont_filter=True)
                 sleep(3)
                 meta = {'timing': False}
-                yield Request(self.json['url'], callback=self.parse1, meta=meta)
+                yield Request('http://192.168.99.100:8050/render.html?url='+self.json['url'], callback=self.parse1, meta=meta)
                 self.delete_lastestData()
             else:  # 如果找得到path记录说明不是第一次爬，只需要更新最新数据
                 self.delete_lastestData()
@@ -45,10 +64,11 @@ class Spider0(Spider):
                 self.path_a = json.get('path_a', [])
                 self.path_date = json.get('path_date', [])
                 meta = {'timing': True}
-                yield Request(json['url'], callback=self.parse1, meta=meta)
+                yield Request('http://192.168.99.100:8050/render.html?url='+json['url'], callback=self.parse1, meta=meta)
 
     def parse0(self, response):
-        soup = BeautifulSoup(response.body, 'lxml')
+        soup = BeautifulSoup(response.body, 'html.parser')
+        # print(response.body)
         tag_date0=soup.find(string=re.compile('.*' + self.json['date1'] + '.*')).parent
         # print(tag_date0)
         loc0=tag_date0
@@ -61,11 +81,10 @@ class Spider0(Spider):
             loc0 = loc1
             loc1 = loc1.parent
         self.path_date.reverse()
-        # print(self.path_date)
+        print(self.path_date)
 
         tag_a0 = loc0.find('a', string=self.json['title1'])
         tag_tot = loc0
-        # print(tag_a0.parent)
         loc0 = tag_a0
         loc1 = loc0.parent
         while loc0 != tag_tot:
@@ -76,7 +95,7 @@ class Spider0(Spider):
             loc0 = loc1
             loc1 = loc1.parent
         self.path_a.reverse()
-        # print(self.path_a)
+        print(self.path_a)
 
         loc0 = tag_tot
         loc1 = loc0.parent
@@ -88,7 +107,7 @@ class Spider0(Spider):
             loc0 = loc1
             loc1 = loc1.parent
         self.path_tot.reverse()
-        # print(self.path_tot)
+        print(self.path_tot)
 
         tag_all = loc0
 
@@ -102,29 +121,34 @@ class Spider0(Spider):
             loc0 = loc1
             loc1 = loc1.parent
         self.path_all.reverse()
-        # print(self.path_all)
+        print(self.path_all)
         follow_path.update({'spider_name': self.spider_name},
                            {'$set': dict({'spider': self.spider_name, 'url': response.url, 'path_all': self.path_all, 'path_tot': self.path_tot,
                                           'path_date': self.path_date, 'path_a': self.path_a})},
                            upsert=True)
 
     def parse1(self, response):
+        print(1)
         tot1=self.path_tot[0]
 
         self.path_tot.remove(self.path_tot[0])
-        soup = BeautifulSoup(response.body, 'lxml')
-        next_page = None
+        soup = BeautifulSoup(response.body, 'html.parser')
         tag_all = soup.find('body')
         for i in self.path_all:
-            # print(tag_all.name)
-            tag_all = tag_all.find_all(i[0], recursive=False)[i[1]]
+            try:
+                tag_all = tag_all.find_all(i[0], recursive=False)[i[1]]
+            except:
+                continue
 
         tag_all = tag_all.find_all(tot1)
         for tot in tag_all:
             item = DataCollecterItem()
             try:
                 for i in self.path_tot:
-                    tot = tot.find_all(i[0], recursive=False)[i[1]]
+                    try:
+                        tot = tot.find_all(i[0], recursive=False)[i[1]]
+                    except:
+                        continue
                 tag_date = tot
                 tag_a = tot
                 for i in self.path_date:
@@ -140,16 +164,11 @@ class Spider0(Spider):
                 item['spider'] = self.spider_name
                 yield item
             except:
-                if tot.find(string='下一页') is not None and tot.find(string='下一页').parent.get('href', None) is not None:
-                    next_page = urljoin(
-                        response.url, tot.find(string='下一页').parent.get('href'))
                 continue
-        if response.meta['timing'] is False:
-            if next_page is None and soup.find(string=re.compile('下一页')) is not None:
-                if soup.find(string=re.compile('下一页')).parent.get('href',None) is None:
-                    return
-                next_page = urljoin(response.url, soup.find(string=re.compile('下一页')).parent['href'])
+
+        if response.meta['timing'] is False and soup.find('a',attrs={'href':True},string=re.compile('下一页')) is not None:
+            next_page = urljoin(response.url, soup.find('a',string=re.compile('下一页'))['href'])
             self.path_tot.reverse()
             self.path_tot.append(tot1)
             self.path_tot.reverse()
-            yield Request(next_page, callback=self.parse1,meta=response.meta)
+            yield Request('http://192.168.99.100:8050/render.html?url='+next_page, callback=self.parse1, meta=response.meta)
