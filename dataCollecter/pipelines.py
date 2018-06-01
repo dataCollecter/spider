@@ -12,6 +12,6 @@ class DataCollecterPipeline(object):
         if len(list(data.find({'spider':item['spider'],'title':item['title'],'date':item['date']})))==0:
             lastest_data.update({'spider': item['spider'], 'url': item['url']}, {
                 '$set': dict(item)}, upsert=True)
-        data.update({'spider': item['spider'], 'url': item['url']}, {
-            '$set': dict(item)}, upsert=True)
-        return None
+            data.update({'spider': item['spider'], 'url': item['url']}, {
+                '$set': dict(item)}, upsert=True)
+            return None
