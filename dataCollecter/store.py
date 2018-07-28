@@ -6,4 +6,4 @@ follow_path = datacollecter.follow_path
 lastest_data = datacollecter.LastData
 data = datacollecter.Data
 spider = datacollecter.Spider
-mail = datacollecter.Mail
+Email = datacollecter.Email
