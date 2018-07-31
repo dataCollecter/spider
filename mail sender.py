@@ -44,7 +44,7 @@ def send_mail(to_list, sub, context):
     msg.attach(html)
     msg['From'] = me
     msg['To'] = ";".join(to_list)  # 将收件人列表以‘；’分隔
-    server = smtplib.SMTP(host=mail_host,port=25)
+    server = smtplib.SMTP_SSL(host=mail_host,port=465)
     server.login(mail_user, mail_pass)  # 登录操作
     server.sendmail(me, to_list, msg.as_string())
     server.close()
